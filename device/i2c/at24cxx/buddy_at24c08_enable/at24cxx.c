@@ -1,5 +1,5 @@
 /*
- * Copyright@2014
+ * Copyright@2014 Buddy Zhangrenze
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
