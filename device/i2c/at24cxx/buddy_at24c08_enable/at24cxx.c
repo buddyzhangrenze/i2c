@@ -15,7 +15,7 @@
 
 #define DEV_NAME "at24c"
 #define I2C_MINORS	256
-
+#define DEBUG       1
 
 static struct class *i2c_dev_class;
 static struct i2c_client *my_client;
@@ -40,7 +40,12 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count, lo
 	struct i2c_client *client= (struct i2c_client *)file->private_data;
 	struct i2c_adapter *adap = client->adapter;
 	reg_addr = *offset;
-	
+
+#if DEBUG
+	printk(KERN_INFO "======The client read====== \nflags is %x\naddr is %x\nname is %s\nadapter name is %s\n==================\n",client->flags,client->addr,client->name,client->adapter->name);
+#endif
+
+
 	printk(KERN_INFO "i2cdev_read\n");
 	if(count > 8192)
 		count = 8192;
@@ -54,13 +59,17 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count, lo
 	msg[0].flags = client->flags & I2C_M_TEN;
 	msg[0].len = 1;
 	msg[0].buf = &reg_addr;//read addr
-
+#if DEBUG
+	printk(KERN_INFO "========msg[0] infomation=======\nmsg->addr:%x\nmsg->flags:%x\nmsg->len:%d\nmsg->buf:%d\n========================\n",msg[0].addr,msg[0].flags,msg[0].len,(int)msg[0].buf);
+#endif
 	msg[1].addr = client->addr;
 	msg[1].flags = client->flags & I2C_M_TEN;
 	msg[1].flags |= I2C_M_RD;
 	msg[1].len = count;
 	msg[1].buf = tmp;//read data
-
+#if DEBUG
+	printk(KERN_INFO "========msg[1] infomation=======\nmsg->addr:%x\nmsg->flags:%x\nmsg->len:%d\nmsg->buf:%s\n========================\n",msg[1].addr,msg[1].flags,msg[1].len,msg[1].buf);
+#endif
 	ret = i2c_transfer(adap, msg, 2);
 	printk(KERN_ERR "i2c_transfer:ret=%d\n",ret);
 
@@ -70,6 +79,8 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count, lo
 	printk(KERN_ERR "copy_to_user:ret=%d\n",ret);
 	if(ret)
 		goto out;
+	printk(KERN_INFO "Read from i2c slave is %c\n",tmp);
+
 	kfree(tmp);
 	return count;
 	out:
@@ -89,6 +100,10 @@ static ssize_t i2cdev_write(struct file *file, const char __user *buf,
 	struct i2c_adapter *adap = client->adapter;
 	struct i2c_msg msg;
 
+#if DEBUG
+	printk(KERN_INFO "======The client write====== \nflags is %x\naddr is %x\nname is %s\nadapter name is %s\n======================\n",client->flags,client->addr,client->name,client->adapter->name);
+#endif
+
 	printk(KERN_ERR "i2cdev_write\n");
 
 	if (count > 8192)
@@ -97,20 +112,31 @@ static ssize_t i2cdev_write(struct file *file, const char __user *buf,
 	printk(KERN_ERR"write:count = %d,offset = %d\n",(int )count,(int)*offset);
 	tmp = kmalloc(count, GFP_KERNEL);
 	if (tmp == NULL)
+	{
+		printk(KERN_INFO "Unable alloc memory\n");
 		return -ENOMEM;
-	if (copy_from_user(tmp, buf, count)) {
+	}
+	if (copy_from_user(tmp, buf, count)) 
+	{
 		kfree(tmp);
 		printk(KERN_ERR"copy_from_user falied\n");
 		return -EFAULT;
 	}
+	printk(KERN_INFO "==>data from user are:%s\n",tmp);
  	msg.addr = client->addr;
 	msg.flags = client->flags & I2C_M_TEN;
+#if DEBUG
+	printk(KERN_INFO "===========msg write infomation=========\nmsg->addr:%x\nmsg->flags:%x\n============================\n",msg.addr,msg.flags);
+#endif
     for(i=0; i< count; i++)
 	{
 		tmp_data[0] = *offset +i;
 		tmp_data[1] = *(tmp+i);
 		msg.len = 2;
 		msg.buf = tmp_data;		
+#if DEBUG
+		printk(KERN_INFO "=====>num:%d\n=>tmp_data[0]:%c\n=>tmp_data[1]:%c\nmsg->buf:%s\n====\n",i,tmp_data[0],tmp_data[1],msg.buf);
+#endif
 		ret = i2c_transfer(adap, &msg, 1);
 		if(1 != ret)
 		{
@@ -119,6 +145,7 @@ static ssize_t i2cdev_write(struct file *file, const char __user *buf,
 		}
 			
 	}
+	printk(KERN_INFO "Succeed to transfer data,the number is %d\n",ret);
 	kfree(tmp);
 	/* If everything went ok (i.e. 1 msg transmitted), return #bytes
 	   transmitted, else error code. */
@@ -167,9 +194,11 @@ static int i2cdev_open(struct inode *inode, struct file *file)
 {
 
 	printk(KERN_ERR "i2cdev_open\n");
-
+	
 	file->private_data = my_client;
-
+#if DEBUG
+	printk(KERN_INFO "======The client open====== \nflags is %x\naddr is %x\nname is %s\nadapter name is %s\n====================\n",my_client->flags,my_client->addr,my_client->name,my_client->adapter->name);
+#endif
 	return 0;
 }
 
@@ -256,7 +285,7 @@ static int __init at24cxx_init(void)
 	i2c_info.addr = 0x50;
 
 	my_client = i2c_new_device(adap,&i2c_info);
-	if(my_client) 
+	if(my_client == NULL) 
 	{
 		printk(KERN_INFO "Unable to create i2c client\n");
 		return -EFAULT;
