@@ -1,0 +1,1 @@
+cmd_/home/yiheng/桌面/i2c/at24cxx.ko := arm-linux-ld -EL -r  -T /home/yiheng/self/study/guoqian/linux-2.6.32.2/scripts/module-common.lds --build-id -o /home/yiheng/桌面/i2c/at24cxx.ko /home/yiheng/桌面/i2c/at24cxx.o /home/yiheng/桌面/i2c/at24cxx.mod.o
