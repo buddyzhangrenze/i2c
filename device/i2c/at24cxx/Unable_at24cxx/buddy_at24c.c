@@ -40,6 +40,7 @@ static int buddy_open(struct inode *inode,struct file *filp)
 static int buddy_release(struct inode *inode,struct file *filp)
 {
 	printk(KERN_INFO "close file\n");
+	filp->private_data = NULL;
 	return 0;
 }
 /*
@@ -57,8 +58,8 @@ static ssize_t buddy_read(struct file *filp,char __user *buf,size_t count,loff_t
 	buddy_debug(client,"read");
 #endif
 	printk(KERN_INFO "Buddy read file\n");
-	if(count > 8196)
-		count = 8196;
+	if(count > 8192)
+		count = 8192;
 	tmp = kmalloc(count,GFP_KERNEL);
 	if(tmp == NULL)
 	{
@@ -96,6 +97,8 @@ static ssize_t buddy_read(struct file *filp,char __user *buf,size_t count,loff_t
 	ret = copy_to_user(buf,tmp,count);
 	if(ret)
 		printk(KERN_INFO "Complete %d bytes transfer\n",ret);
+	if(ret == count)
+		printk(KERN_INFO "Complete all bytes transfer\n");
 out_free:
 	kfree(tmp);
 out:
@@ -135,6 +138,8 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		goto out_free;
 	} else if(ret <count)
 		printk(KERN_INFO "Have data loss\n");
+	if(ret == count)
+		printk(KERN_INFO "Succeed to get data from Userspace\n");
 
 	/*
 	 * data transfer
@@ -156,6 +161,8 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		}
 	}
 	printk(KERN_INFO "Succeed to write data to at24c\n");
+	kfree(tmp);
+	return (ret == 1)? count : ret; 
 out_free:
 	kfree(tmp);
 out:
@@ -204,6 +211,7 @@ static int buddy_probe(struct i2c_client *client,const struct i2c_device_id *id)
 		res = PTR_ERR(dev);
 		goto error;
 	}
+	printk(KERN_INFO "Succeed to probe device\n");
 	return 0;
 error:
 	return res;
@@ -299,6 +307,7 @@ static __init  int buddy_init(void)
 		printk(KERN_INFO "Unable to add i2c driver to i2c core\n");
 		goto out_class;
 	}
+	printk(KERN_INFO "Complete to init module\n");
 	return 0;
 	/*
 	 * deal with error
