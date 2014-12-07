@@ -8,11 +8,12 @@
 #include <linux/list.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+#include <linux/i2c-dev.h>
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
 
-#define DEV_NAME "at24c01"
+#define DEV_NAME "at24c"
 #define DEBUG     1
 
 static struct class *i2c_dev_class;
@@ -96,8 +97,8 @@ static ssize_t buddy_read(struct file *filp,char __user *buf,size_t count,loff_t
 
 	ret = copy_to_user(buf,tmp,count);
 	if(ret)
-		printk(KERN_INFO "Complete %d bytes transfer\n",ret);
-	if(ret == count)
+		printk(KERN_INFO "Incomplete %d bytes transfer\n",ret);
+	if(ret == 0)
 		printk(KERN_INFO "Complete all bytes transfer\n");
 out_free:
 	kfree(tmp);
@@ -130,17 +131,17 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		ret = -ENOMEM;
 		goto out;
 	}
+#if DEBUG 
+	printk(KERN_INFO "Write count %d\n",count);
+#endif
 	ret = copy_from_user(tmp,buf,count);
-	if(ret < 0)
+	if(ret != 0)
 	{
-		printk(KERN_INFO "Unable to get data from user\n");
+		printk(KERN_INFO "Unable to get %d bytes data from user\n",ret);
 		ret = -EFAULT;
 		goto out_free;
-	} else if(ret <count)
-		printk(KERN_INFO "Have data loss\n");
-	if(ret == count)
-		printk(KERN_INFO "Succeed to get data from Userspace\n");
-
+	} 
+	printk(KERN_INFO "Get %d bytes form Userspace\n",count);
 	/*
 	 * data transfer
 	 */
@@ -153,12 +154,16 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		msg.len = 2;
 		msg.buf = tmp_data;
 
+#if DEBUG
+		printk(KERN_INFO "=========data%d transfer==========\n=>tmp_data[0]:%x\n=>tmp_data[1]:%x\nmsg->buf:%x\n======================\n",i,tmp_data[0],tmp_data[1],msg.buf);
+#endif 
 		ret = i2c_transfer(client->adapter,&msg,1);
 		if(ret != 1)
 		{
 			printk(KERN_INFO "Fail to transfer data\n");
 			goto out_free;
 		}
+		printk(KERN_INFO "Succeed to transfer data\n");
 	}
 	printk(KERN_INFO "Succeed to write data to at24c\n");
 	kfree(tmp);
@@ -187,6 +192,7 @@ static const struct file_operations buddy_ops =
 static const struct i2c_device_id id_table[] = {
 	{"at24c01",0x50},
 	{"at24c02",0x50},
+	{},
 };
 /*
  * probe client
@@ -333,4 +339,4 @@ module_init(buddy_init);
 module_exit(buddy_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Buddy Zhangrenze");
+MODULE_AUTHOR("Buddy Zhangrenze <514981221@qq.com>");
