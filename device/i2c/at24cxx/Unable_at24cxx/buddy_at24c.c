@@ -15,8 +15,8 @@
 
 #define DEV_NAME "at24c"
 #define DEBUG     1
-#define BYTE_WRITE       1
-#define PAGE_WRITE       0
+#define BYTE_WRITE       0
+#define PAGE_WRITE       1
 #define BASIC_WRITE      0
 static struct class *i2c_dev_class;
 static struct i2c_client *my_client;
@@ -119,7 +119,11 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 	struct i2c_msg msg;
 	char tmp_data[2];
 	int i;
+#elif PAGE_WRITE
+	struct i2c_msg msg[2];
+	char reg_addr = *offset;
 #endif
+
 
 	printk(KERN_INFO "buddy_kernel_write\n");
 #if DEBUG
@@ -184,6 +188,7 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 	 * druing this write cycle and the EEPROM will not respond until the 
 	 * write is complete.
 	 */
+	printk(KERN_INFO ">>>>This is Byte Write<<<<\n");
 	msg.addr = client->addr;
 	msg.flags = client->flags | I2C_M_TEN;
 
@@ -206,6 +211,50 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 	}
 
 #endif
+#if PAGE_WRITE
+	/*
+	 * The 1K/2K EEPROM is capable of an 8-byte page write,and the 4K,8K
+	 * and 16K devices are capable of 16-byte page writes.
+	 * A page write is initiated the same as a byte,but the microcontroller
+	 * does not send a stop condition after the first data word is clocked
+	 * in.Inside,after the EEPROM acknowledge receipt of the first data
+	 * word,the microcontroller can transmit up to seven(1K/2K) or 
+	 * fifteen(4K,8K,16K) more data words.The EEPROM will respond with a
+	 * zero afer each data word received.The microcontroller must terminate
+	 * the page write sequence with a stop condition.
+	 * The data wrod address lower three(1K/2K) or four(4K,8K,16K)bits are 
+	 * internally incremented following the receipt of each data word.The
+	 * higher data word address bits are not increamented,retaining the 
+	 * memory page row location.When the word address,internally generated,
+	 * reaches the page boundary,the following byte is placed at the 
+	 * beginning of the same page.If more than eight(1K/2K) or sixteen(4K,
+	 * 8K,16K)data words are transmitted to the EEPROM,the data word 
+	 * address will "roll over" and previous data will be overwritten.
+	 */
+	
+	/*
+	 * this device is 1K EEPROM,so it has 8-byte page can write
+	 */
+	printk(KERN_INFO ">>>>Page Write<<<<\n");
+	msg[0].addr	   = client->addr;
+	msg[0].flags   = I2C_M_TEN;
+	msg[0].len     = 1;
+	msg[0].buf     = &reg_addr;
+
+	msg[1].addr    = client->addr;
+	msg[1].flags   = I2C_M_TEN;
+	msg[1].len     = count;
+	msg[1].buf     = tmp;
+	/*
+	 * transfer data
+	 */
+	ret = i2c_transfer(client->adapter,msg,2);
+	if(ret != 2)
+	{
+		printk(KERN_INFO "Fail to transfer data\n");
+		goto out_free;
+	}
+#endif 
 	printk(KERN_INFO "Succeed to write data to at24c\n");
 	kfree(tmp);
 	return (ret == 1)? count : ret; 
