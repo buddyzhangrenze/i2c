@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 #include <linux/string.h>
 
-#define DEV_NAME "at24c02"
+#define DEV_NAME "at24c01"
 #define DEBUG     1
 
 static struct class *i2c_dev_class;
@@ -47,13 +47,122 @@ static int buddy_release(struct inode *inode,struct file *filp)
  */
 static ssize_t buddy_read(struct file *filp,char __user *buf,size_t count,loff_t *offset)
 {
+	int ret;
 	struct i2c_client *client = filp->private_data;
+	struct i2c_msg msg[2];
+	char *tmp;
+	char reg_addr = *offset;
+
 #if DEBUG
 	buddy_debug(client,"read");
 #endif
 	printk(KERN_INFO "Buddy read file\n");
-	return 0;
+	if(count > 8196)
+		count = 8196;
+	tmp = kmalloc(count,GFP_KERNEL);
+	if(tmp == NULL)
+	{
+		printk(KERN_INFO "Unable to get more memory from system\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	/*
+	 * random read
+	 */
+	/* dummy write */
+	msg[0].addr   = client->addr;
+	msg[0].flags  = client->flags & I2C_M_TEN; 
+	msg[0].len    = 1;
+	msg[0].buf    = &reg_addr;
+
+	msg[1].addr    = client->addr;
+	msg[1].flags   = client->flags & I2C_M_TEN;
+	msg[1].flags  |= I2C_M_RD;
+	msg[1].len     = count;
+	msg[1].buf     = tmp;
+	
+	/*
+	 * transfer data
+	 */
+	ret = i2c_transfer(client->adapter,msg,2);
+	if(ret != 2)
+	{
+		printk(KERN_INFO "Fail to transfer data\n");
+		ret = -EFAULT;
+		goto out_free;
+	}
+	printk(KERN_INFO "Succeed to read data\n");
+
+	ret = copy_to_user(buf,tmp,count);
+	if(ret)
+		printk(KERN_INFO "Complete %d bytes transfer\n",ret);
+out_free:
+	kfree(tmp);
+out:
+	return ret;
 }
+/*
+ * write - file operations
+ */
+static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count,loff_t *offset)
+{
+	int ret = 0;
+	char *tmp;
+	struct i2c_client *client = filp->private_data;
+	struct i2c_msg msg;
+	char tmp_data[2];
+	int i;
+
+	printk(KERN_INFO "buddy_kernel_write\n");
+#if DEBUG
+	buddy_debug(client,"write");
+#endif 
+	
+	if(count > 8192)
+		count = 8192;
+	tmp = kmalloc(count,GFP_KERNEL);
+	if(tmp == NULL)
+	{
+		printk(KERN_INFO "Unable to get memory from system\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	ret = copy_from_user(tmp,buf,count);
+	if(ret < 0)
+	{
+		printk(KERN_INFO "Unable to get data from user\n");
+		ret = -EFAULT;
+		goto out_free;
+	} else if(ret <count)
+		printk(KERN_INFO "Have data loss\n");
+
+	/*
+	 * data transfer
+	 */
+	msg.addr    = client->addr;
+	msg.flags	= client->flags & I2C_M_TEN; 
+	for(i = 0 ; i < count ; i++)
+	{
+		tmp_data[0] = *offset+i;
+		tmp_data[1] = *(tmp+i);
+		msg.len = 2;
+		msg.buf = tmp_data;
+
+		ret = i2c_transfer(client->adapter,&msg,1);
+		if(ret != 1)
+		{
+			printk(KERN_INFO "Fail to transfer data\n");
+			goto out_free;
+		}
+	}
+	printk(KERN_INFO "Succeed to write data to at24c\n");
+out_free:
+	kfree(tmp);
+out:
+	return ret;
+
+}
+
 /*
  * struct for file_operations
  */
@@ -61,6 +170,7 @@ static const struct file_operations buddy_ops =
 {
 	.owner    = THIS_MODULE,
 	.read     = buddy_read,
+	.write    = buddy_write,
 	.open     = buddy_open,  
 	.release  = buddy_release,
 };
