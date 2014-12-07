@@ -15,7 +15,9 @@
 
 #define DEV_NAME "at24c"
 #define DEBUG     1
-
+#define BYTE_WRITE       1
+#define PAGE_WRITE       0
+#define BASIC_WRITE      0
 static struct class *i2c_dev_class;
 static struct i2c_client *my_client;
 static int i2c_major;
@@ -113,9 +115,11 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 	int ret = 0;
 	char *tmp;
 	struct i2c_client *client = filp->private_data;
+#if (BAISC_WRITE | BYTE_WRITE)
 	struct i2c_msg msg;
 	char tmp_data[2];
 	int i;
+#endif
 
 	printk(KERN_INFO "buddy_kernel_write\n");
 #if DEBUG
@@ -142,8 +146,9 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		goto out_free;
 	} 
 	printk(KERN_INFO "Get %d bytes form Userspace\n",count);
+#if BASIC_WRITE
 	/*
-	 * data transfer
+	 * data transfer - This is basic way to write data
 	 */
 	msg.addr    = client->addr;
 	msg.flags	= client->flags & I2C_M_TEN; 
@@ -165,6 +170,42 @@ static ssize_t buddy_write(struct file *filp,const char __user *buf,size_t count
 		}
 		printk(KERN_INFO "Succeed to transfer data\n");
 	}
+#endif
+#if BYTE_WRITE
+	/*
+	 * Byte_write - A write operation requires an 8-bit data word address
+	 * following the device address word and acknowledgment.Upon receipt 
+	 * of this address,the EEPROM will again respond with a zero and then 
+	 * clock in the first 8-bit data word.Following receipt of the 8-bit 
+	 * data word,the EEPROM will output a zero and the addressing device,
+	 * such as a microcontroller,must terminate the write sequence with a
+	 * stop condition.At this time the EEPROM enters an internally timed 
+	 * write cycle,t(wr),to the nonvolatile memmory,All inputs are disable
+	 * druing this write cycle and the EEPROM will not respond until the 
+	 * write is complete.
+	 */
+	msg.addr = client->addr;
+	msg.flags = client->flags | I2C_M_TEN;
+
+	for(i = 0;i < count;i++)
+	{
+		tmp_data[0] = *offset + i;
+		tmp_data[1] = *(tmp + i);
+		msg.len = 2;
+		msg.buf = tmp_data;
+#if DEBUG
+		printk(KERN_INFO "=======data[%d] transfer=======\n=>tmp_data[0]:%x\n=>tmp_data[1]:%x\nmsg_buf:%s\n",i,tmp_data[0],tmp_data[1],msg.buf);
+#endif
+		ret = i2c_transfer(client->adapter,&msg,1);
+		if(ret != 1)
+		{
+			printk(KERN_INFO "Fail to transfer data\n");
+			goto out_free;
+		}
+		printk(KERN_INFO "Complete %dth transfer\n",i);
+	}
+
+#endif
 	printk(KERN_INFO "Succeed to write data to at24c\n");
 	kfree(tmp);
 	return (ret == 1)? count : ret; 
