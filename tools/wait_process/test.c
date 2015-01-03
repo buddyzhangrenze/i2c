@@ -13,8 +13,8 @@ void show_print(int percent,int barlen)
 	for(i=1;i<= barlen;++i)
 		putchar(i*100 <= percent * barlen ? '>' : ' ');
 	putchar(']');
-	printf("%3d%%",percent);
-	for(i=0;i != barlen + 6;++i)
+	printf("%3d%3d",percent,percent);
+	for(i=0;i != barlen + 12;++i)
 		putchar('\b');
 }
 	
