@@ -18,6 +18,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <setjmp.h>
+
+static jmp_buf  jumpbuffer;
 /*
  *  data segment
  */
@@ -25,6 +28,8 @@
 #define BUFFER_SIZE    1024
 #define MAX            5
 #define SOCKET_COUNT   50
+
+static int end_count = 0;
 typedef struct 
 {
 	FILE *input;
@@ -66,6 +71,7 @@ void buddy_update(void *master);
 void buddy_download(void *master);
 void buddy_exchange_message(void *client,void *data,void *file_attr,int state);
 void buddy_start_server(void *master);
+void buddy_end(void *master);
 inline void buddy_stop_server(void *master);
 void list_file_server(void *master);
 void list_file_client(void *master);
@@ -75,6 +81,7 @@ void buddy_send_menu(void *master);
 void buddy_send_sub_menu(void *master);
 void socket_delay(void);
 void *trave_dir(void *master,void *b,int depth);
+void wait_process(int percent,int barlen);
 /*
  * main()
  */
@@ -125,11 +132,15 @@ int main()
 		exit(1);
 	}
 	while(1)
-	{
-		printf("Listening ..........\n");
+	{	
+		if(setjmp(jumpbuffer) != 0)
+    		{
+       		 printf("start new socket[%d]\n",end_count);
+   		 }
+		printf("Listening [%d]..........\n",end_count);
 		/*
-     	 * call accept(),wait request from user
-		 */
+     	 	  * call accept(),wait request from user
+		  */
 		buddy_fd.client_fd = accept(buddy_fd.server_fd,NULL,NULL);
 		if(buddy_fd.server_fd == -1)
 		{
@@ -211,6 +222,7 @@ void buddy_update(void *master)
 	fclose(dev->file.input);
 	free(dev->buf);
 	free(file);
+	buddy_end(dev);  /* 5 */
 }
 /*
  * buddy_update server
@@ -257,6 +269,7 @@ void buddy_download(void *master)
 	free(dev->buf);
 	fclose(dev->file.input);
 	free(file);
+	buddy_end(dev); /* 5 */
 }
 /*
  * exchange message
@@ -269,8 +282,15 @@ void buddy_exchange_message(void *client,void *data,void *file_attr,int state)
 	int current_pos = 0;
 	int count = SOCKET_COUNT;
 	char *tmp = (char *)data;
+	float per,bar;
+	/*
+	 * size        - file length
+	 * current_pos - had operation
+	 */
+	per = (float)size;
 	while(size)
 	{
+		
 		if(count > size)
 			count = size;
 		if(strncmp(dev->state,"update",6) == 0)
@@ -284,7 +304,12 @@ void buddy_exchange_message(void *client,void *data,void *file_attr,int state)
 		}
 		current_pos += count;
 		size -= count;
+		bar = ((float)current_pos / per) * 100;
+		wait_process(bar,50); 
+		fflush(stdout);
+	
 	}
+	printf("\n");
 	printf("|| exchange message complete\n");
 	printf("========================================\n");
 }
@@ -341,12 +366,38 @@ void buddy_start_server(void *master)
 		send(dev->client_fd,"NO",2,0);
 	}
 	free(dev->state);
+	buddy_end(dev); /* 1 */
 }
 /*
  * stop server
  */
 inline void buddy_stop_server(void *master)
 {
+	
+}
+/*
+ * end
+ */
+void buddy_end(void *master)
+{
+	buddy_socket *dev = (buddy_socket *)master;
+	char *state = malloc(1);
+	end_count += 1;
+	recv(dev->client_fd,(void *)state,1,0);
+	if(strncmp(state,"Y",1) == 0)
+	{
+		
+//		printf("==>[%d]->end socket\n",end_count);
+		send(dev->client_fd,"Y",1,0);
+		free(state);
+		/* restart socket */
+		longjmp(jumpbuffer,1);
+	} else
+	{
+//		printf("==>[%d]->No end socket\n",end_count);
+		send(dev->client_fd,"N",1,0);
+		free(state);
+	}
 	
 }
 /*
@@ -372,6 +423,7 @@ void input_file_name(void *master)
 	/*
 	 * file operation
 	 */
+	 buddy_end(dev); /* 4 */
 	input_func(dev);
 }
 /*
@@ -504,6 +556,8 @@ void list_file_server(void *master)
 	 */
 	free(data);
 	printf("=======================================\n");
+	buddy_end(dev); /* 2 */
+	buddy_end(dev); /* 3 */
 	input_file_name(dev);
 }
 /*
@@ -525,6 +579,22 @@ void list_file_client(void *master)
 	 */
 	#endif
 	printf("========================================\n");
-
+	buddy_end(dev); /* 2 */
+	buddy_end(dev); /* 3 */
 	input_file_name(dev);
 }
+/*
+ * wait process
+ */
+void wait_process(int percent,int barlen)
+{
+	int i;
+	putchar('[');
+	for(i = 1;i <= barlen; ++i)
+		putchar(i*100 <= percent * barlen ? '>': ' ');
+	putchar(']');
+	printf("%3d%%",percent);
+	for(i=0;i != barlen + 6;++i)
+		putchar('\b');
+}
+

@@ -23,6 +23,7 @@
  */
 #define BUFFER_SIZE 1024
 #define SOCKET_COUNT 500
+static int end_count = 0;
 /*
  * buddy data
  */
@@ -72,6 +73,7 @@ void list_file_server(void *master);
 void list_file_client(void *master);
 void input_file_name(void *master);
 void input_func(void *master);
+void buddy_end(void *master,char *s);
 inline void buddy_start_server(void *master);
 inline void buddy_stop_server(void *master);
 void buddy_recv_menu(void *master);
@@ -347,6 +349,7 @@ void input_func(void *master)
  */
 inline void buddy_start_server(void *master)
 {
+	int d;
 	buddy_socket *dev = (buddy_socket *)master;
 	dev->state = malloc(5);
 	send(dev->client_fd,"start",5,0);
@@ -361,6 +364,12 @@ inline void buddy_start_server(void *master)
 		printf("============Fail to server============\n");
 	}
 	free(dev->state);
+	printf("1--end\n2--continu\ninput you number\n");
+	scanf("%d",&d);
+	if(d == 1)
+		buddy_end(dev,"Y");
+	else
+		buddy_end(dev,"N");
 }
 /*
  * stop server
@@ -534,4 +543,21 @@ void list_file_client(void *master)
 #endif
 	input_file_name(dev);
 }
+void buddy_end(void *master,char *s)
+{
+	buddy_socket *dev = (buddy_socket *)master;
+	char *state = malloc(1);
+	end_count += 1;
+	send(dev->client_fd,(void *)s,1,0);
+	recv(dev->client_fd,state,1,0);
+	if(strncmp(state,"Y",1) == 0)
+	{
+		printf("==>[%d]->end socket\n",end_count);
+		free(state);
+	} else
+	{
+		printf("==>[%d]->no end socket\n",end_count);
+		free(state);
+	}
 
+}
