@@ -23,9 +23,11 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
+#include <linux/delay.h>
 
 #define DEV_NAME "bmp180"
-#define DEBUG          1
+#define DEBUG          0
+#define TEST           0
 /*
  * BMP180 register address
  * | Parmenter |  MSB  |  LSB  |
@@ -86,7 +88,7 @@ int buddy_i2c_read(struct i2c_client *client,int addr,char *buf,int num)
 		printk(KERN_INFO "Fail to transfer\n");
 		return 1;
 	} else
-		printk(KERN_INFO "Succeed to transfer\n");
+	//	printk(KERN_INFO "Succeed to transfer\n");
 	return 0;
 
 }
@@ -102,12 +104,14 @@ int buddy_i2c_write(struct i2c_client *client,int addr,char *buf,int num)
 {
 	int ret;
 	struct i2c_msg msg;
-	
-	/* write operation */
+	char data[2];
+	data[0] = (char)addr;
+	data[1] = *buf;
+	/* write register address */
 	msg.addr   = client->addr;
 	msg.flags  = client->flags | I2C_M_TEN;
-	msg.buf    = buf;
-	msg.len    = num;
+	msg.buf    = (void *)data;
+	msg.len    = 2;
 
 	ret = i2c_transfer(client->adapter,&msg,1);
 	if(ret != 1)
@@ -115,7 +119,7 @@ int buddy_i2c_write(struct i2c_client *client,int addr,char *buf,int num)
 		printk(KERN_INFO "Fail to transfer data\n");
 		return 1;
 	} else
-		printk(KERN_INFO "Succeed to transfer data\n");
+	//	printk(KERN_INFO "Succeed to transfer data\n");
 	return 0;
 }
 /*
@@ -133,9 +137,9 @@ void bmp180_ID(struct i2c_client *client,char *id)
  */
 int bmp180_com_state(struct i2c_client *client)
 {
-	char *id;
-	bmp180_ID(client,id);
-	if(*id == 0x55)
+	char bmp180_id = 0;
+	bmp180_ID(client,&bmp180_id);
+	if(bmp180_id == 0x55)
 		return 0;
 	else
 		return 1;
@@ -146,12 +150,18 @@ int bmp180_com_state(struct i2c_client *client)
 void bmp180_AC1_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAA,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC1.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC1_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAB,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC1.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC1(struct i2c_client *client,int *buf)
+void bmp180_AC1(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -159,8 +169,11 @@ void bmp180_AC1(struct i2c_client *client,int *buf)
 	bmp180_AC1_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf<<=8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>AC1.[%d]\n",*buf);
+#endif
 }
 /*
  * Read AC2 register - Get AC2 data.
@@ -168,12 +181,18 @@ void bmp180_AC1(struct i2c_client *client,int *buf)
 void bmp180_AC2_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAC,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC2.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC2_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAD,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC2.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC2(struct i2c_client *client,int *buf)
+void bmp180_AC2(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -181,8 +200,11 @@ void bmp180_AC2(struct i2c_client *client,int *buf)
 	bmp180_AC2_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf<<=8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>AC2.[%d]\n",*buf);
+#endif
 	
 }
 /*
@@ -191,12 +213,18 @@ void bmp180_AC2(struct i2c_client *client,int *buf)
 void bmp180_AC3_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAE,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC3.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC3_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xAF,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC3.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC3(struct i2c_client *client,int *buf)
+void bmp180_AC3(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -204,8 +232,11 @@ void bmp180_AC3(struct i2c_client *client,int *buf)
 	bmp180_AC3_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>AC3.[%d]\n",*buf);
+#endif
 }
 /*
  * Read AC4 register - Get AC4 data.
@@ -213,12 +244,18 @@ void bmp180_AC3(struct i2c_client *client,int *buf)
 void bmp180_AC4_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB0,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC4.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC4_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB1,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC4.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC4(struct i2c_client *client,int *buf)
+void bmp180_AC4(struct i2c_client *client,unsigned short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -226,8 +263,11 @@ void bmp180_AC4(struct i2c_client *client,int *buf)
 	bmp180_AC4_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf = *buf & 0xF0;
+	*buf = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>AC4.[%d]\n",*buf);
+#endif
 }
 /*
  * Read AC5 register - Get AC5 data.
@@ -235,12 +275,18 @@ void bmp180_AC4(struct i2c_client *client,int *buf)
 void bmp180_AC5_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB2,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC5.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC5_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB3,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC5.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC5(struct i2c_client *client,int *buf)
+void bmp180_AC5(struct i2c_client *client,unsigned short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -248,8 +294,11 @@ void bmp180_AC5(struct i2c_client *client,int *buf)
 	bmp180_AC5_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb; 
+#if TEST
+	printk(KERN_INFO "=>AC5.[%d]\n",*buf);
+#endif
 }
 /*
  * Read AC6 register - Get AC6 data.
@@ -257,12 +306,18 @@ void bmp180_AC5(struct i2c_client *client,int *buf)
 void bmp180_AC6_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB4,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC6.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_AC6_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB5,buf,1);
+#if TEST
+	printk(KERN_INFO "=>AC6.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_AC6(struct i2c_client *client,int *buf)
+void bmp180_AC6(struct i2c_client *client,unsigned short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -270,8 +325,11 @@ void bmp180_AC6(struct i2c_client *client,int *buf)
 	bmp180_AC6_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>AC6.[%d]\n",*buf);
+#endif
 }
 /*
  * Read B1 register - Get B1 data.
@@ -279,12 +337,18 @@ void bmp180_AC6(struct i2c_client *client,int *buf)
 void bmp180_B1_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB6,buf,1);
+#if TEST
+	printk(KERN_INFO "=>B1.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_B1_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB7,buf,1);
+#if TEST
+	printk(KERN_INFO "=>B1.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_B1(struct i2c_client *client,int *buf)
+void bmp180_B1(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -292,8 +356,11 @@ void bmp180_B1(struct i2c_client *client,int *buf)
 	bmp180_B1_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>B1.[%d]\n",*buf);
+#endif
 }
 /*
  * Read B2 register - Get B2 data.
@@ -301,21 +368,30 @@ void bmp180_B1(struct i2c_client *client,int *buf)
 void bmp180_B2_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB8,buf,1);
+#if TEST
+	printk(KERN_INFO "=>B2.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_B2_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xB9,buf,1);
+#if TEST
+	printk(KERN_INFO "=>B2.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_B2(struct i2c_client *client,int *buf)
+void bmp180_B2(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
-	bmp180_B1_MSB(client,&buf_msb);
+	bmp180_B2_MSB(client,&buf_msb);
 	bmp180_B2_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>B2.[%d]\n",*buf);
+#endif
 }
 /*
  * Read MB register - Get MB data.
@@ -323,12 +399,18 @@ void bmp180_B2(struct i2c_client *client,int *buf)
 void bmp180_MB_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBA,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MB.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_MB_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBB,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MB.LSB.[%d]\n",*buf);
+#endif
 }
-void bmp180_MB(struct i2c_client *client,int *buf)
+void bmp180_MB(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -336,8 +418,11 @@ void bmp180_MB(struct i2c_client *client,int *buf)
 	bmp180_MB_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>MB.[%d]\n",*buf);
+#endif
 }
 /*
  * Read MC register - Get MC data.
@@ -345,12 +430,18 @@ void bmp180_MB(struct i2c_client *client,int *buf)
 void bmp180_MC_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBC,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MC.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_MC_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBD,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MC.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_MC(struct i2c_client *client,int *buf)
+void bmp180_MC(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -358,8 +449,11 @@ void bmp180_MC(struct i2c_client *client,int *buf)
 	bmp180_MC_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>MC.[%d]\n",*buf);
+#endif
 }
 /*
  * Read MD register - Get MD data.
@@ -367,12 +461,18 @@ void bmp180_MC(struct i2c_client *client,int *buf)
 void bmp180_MD_MSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBE,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MD.MSB[%d]\n",*buf);
+#endif
 }
 void bmp180_MD_LSB(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xBF,buf,1);
+#if TEST
+	printk(KERN_INFO "=>MD.LSB[%d]\n",*buf);
+#endif
 }
-void bmp180_MD(struct i2c_client *client,int *buf)
+void bmp180_MD(struct i2c_client *client,short *buf)
 {
 	char buf_msb;
 	char buf_lsb;
@@ -380,8 +480,11 @@ void bmp180_MD(struct i2c_client *client,int *buf)
 	bmp180_MD_LSB(client,&buf_lsb);
 	*buf = buf_msb;
 	*buf <<= 8;
-	*buf  = *buf & 0xF0;
+	*buf  = *buf & 0xFF00;
 	*buf |= buf_lsb;
+#if TEST
+	printk(KERN_INFO "=>MD.[%d]\n",*buf);
+#endif
 }
 /*
  * Measurement control register
@@ -390,6 +493,9 @@ void bmp180_MeasureCtr_read(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xF4,buf,1);
 	*buf = *buf & 0x1F;
+#if TEST
+	printk(KERN_INFO "=>MeasureCtr.[%08x]\n",*buf);
+#endif
 }
 void tmp180_MeasureCtr_write(struct i2c_client *client,char *buf)
 {
@@ -426,7 +532,7 @@ void bmp180_Stop_Conv(struct i2c_client *client)
 	buddy_i2c_write(client,0xF4,&buf,1);
 }
 /* return 0 is convering and 1 is stop conver */
-int tmp180_State_Conv(struct i2c_client *client)
+int bmp180_State_Conv(struct i2c_client *client)
 {
 	char buf;
 	buddy_i2c_read(client,0xF4,&buf,1);
@@ -459,6 +565,9 @@ int bmp180_get_oversample(struct i2c_client *client)
 {
 	char buf;
 	buddy_i2c_read(client,0xF4,&buf,1);
+#if TEST
+	printk(KERN_INFO "=>Oversapmle.[%08x]\n",buf);
+#endif
 	if(buf & 0xC0)
 		return 8;
 	else if(buf & 0x80)
@@ -468,6 +577,24 @@ int bmp180_get_oversample(struct i2c_client *client)
 	else
 		return 0;
 
+}
+void bmp180_write_ctrl_meas(struct i2c_client *client,char buf)
+{
+	char register_addr = 0xF4;
+	if(buddy_i2c_write(client,register_addr,&buf,1) == 1)
+		printk(KERN_INFO "bad write\n");
+#if TEST
+	printk(KERN_INFO "write ctrl register buf is[%08x]\n",buf);
+#endif
+}
+void bmp180_read_ctrl_meas(struct i2c_client *client,char *buf)
+{
+	char register_addr = 0xF4;
+	if(buddy_i2c_read(client,register_addr,buf,1) == 1)
+		printk(KERN_INFO "bad read\n");
+#if TEST
+	printk(KERN_INFO "=>Ctrl_meas.[%08x]\n",*buf);
+#endif
 }
 /*
  * Soft reset - Write only register.If set to 0xB6,will perform the same
@@ -484,6 +611,9 @@ void bmp180_reset(struct i2c_client *client)
 void bmp180_outxlsb(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xF8,buf,1);
+#if TEST
+	printk(KERN_INFO "=>Outxlsb.[%d]\n",*buf);
+#endif
 }
 /*
  * Read out_lsb register
@@ -491,6 +621,9 @@ void bmp180_outxlsb(struct i2c_client *client,char *buf)
 void bmp180_outlsb(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xF7,buf,1);
+#if TEST
+	printk(KERN_INFO "=>Outlsb.[%d]\n",*buf);
+#endif
 }
 /*
  * Read out_msb register
@@ -498,6 +631,9 @@ void bmp180_outlsb(struct i2c_client *client,char *buf)
 void bmp180_outmsb(struct i2c_client *client,char *buf)
 {
 	buddy_i2c_read(client,0xF6,buf,1);
+#if TEST
+	printk(KERN_INFO "=>Outmsb.[%d]\n",*buf);
+#endif
 }
 /*
  * Read out data
@@ -567,7 +703,110 @@ void bmp180_outdata(struct i2c_client *client,int *buf)
  * 7. Display temperature and pressure valure.
  * 8. loop
  */
-
+static int bmp180_calculate_temp_and_pressure(struct i2c_client *client,
+		long *temp,long *pressure)
+{
+	short data_ac1 = 0;
+	short data_ac2 = 0;
+	short data_ac3 = 0;
+	unsigned short data_ac4 = 0;
+	unsigned short data_ac5 = 0;
+	unsigned short data_ac6 = 0;
+	short data_b1 = 0;
+	short data_b2 = 0;
+	short data_mb = 0;
+	short data_mc = 0;
+	short data_md = 0;
+	int  data_outlsb = 0;
+	int  data_outmsb = 0;
+	int  data_outxlsb = 0;
+	long UT = 0;
+	long UP = 0;
+	short oss = 0;
+	long p;
+	long X1,X2,B5,T;
+	long B4,B6,B7,B3,X3;
+	char bu;
+	/*
+	 * Read calibration data from the EEPROM of the BMP180.
+	 */
+	bmp180_AC1(client,&data_ac1);
+	bmp180_AC2(client,&data_ac2);
+	bmp180_AC3(client,&data_ac3);
+	bmp180_AC4(client,&data_ac4);
+	bmp180_AC5(client,&data_ac5);
+	bmp180_AC6(client,&data_ac6);
+	bmp180_B1(client,&data_b1);
+	bmp180_B2(client,&data_b2);
+	bmp180_MB(client,&data_mb);
+	bmp180_MC(client,&data_mc);
+	bmp180_MD(client,&data_md);
+	/*
+	 * Read uncompensated temperature value.
+	 */
+	bmp180_write_ctrl_meas(client,0x2E);
+#if TEST
+	bmp180_read_ctrl_meas(client,&bu);
+#endif
+	mdelay(5);
+	bmp180_outmsb(client,(char *)&data_outmsb);
+	bmp180_outlsb(client,(char *)&data_outlsb);
+	UT = (data_outmsb<<8) + data_outlsb;
+#if TEST
+	printk(KERN_INFO "=>UT.[%ld]\n",UT);
+#endif
+	/*
+	 * Read uncompensated pressure value.
+	 */
+	oss = oss<<6;
+	bmp180_write_ctrl_meas(client,0x34 + oss);
+#if TEST
+	bu &= 0;
+	bmp180_read_ctrl_meas(client,&bu);
+#endif
+	mdelay(5);
+	bmp180_outmsb(client,(char *)&data_outmsb);
+	bmp180_outlsb(client,(char *)&data_outlsb);
+	bmp180_outxlsb(client,(char *)&data_outxlsb);
+	UP = ((data_outmsb<<16) + (data_outlsb<<8) + data_outxlsb) >>(8 - oss);
+#if TEST
+	printk(KERN_INFO "=>UP.[%ld]\n",UP);
+#endif
+	/*
+	 * Calculate true tempture
+	 */
+	X1 = (UT - data_ac6) * data_ac5 / (1<<15);
+	X2 = data_mc * (1<<11) / (X1 + data_md);
+	B5 = X1 + X2;
+	T  = (B5 + 8) / (1<<4);
+	/*
+	 * calculate true pressure
+	 */
+	B6 = B5 - 4000;
+	X1 = (data_b2 *(B6 * B6 / (1<<12) )) / (1<<11);
+	X2 = data_ac2 * B6 / (1<<11);
+	X3 = X1 + X2;
+	B3 = (((data_ac1 * 4 + X3)<<oss) +2) / 4;
+	X1 = data_ac3 * B6 / (1<<13);
+	X2 = (data_b1 * (B6 * B6 / (1<<12))) / (1<<16);
+	X3 = ((X1 + X2) + 2) / 4;
+	B4 = data_ac4 * (unsigned long)(X3 + 32768) / (1<<15);
+	B7 = ((unsigned long)UP - B3) * (50000>>oss);
+	if(B7 < 0x80000000)
+		p = (B7 * 2) / B4;
+	else
+		p = (B7 / B4) * 2;
+	X1 = (p / (1<<8)) * (p / (1<<8));
+	X1 = (X1 * 3038) / (1<<16);
+	X2 = (-7357 * p) / (1<<16);
+	p = p + (X1 + X2 + 3791) / (1<<4);
+	/*
+	 * store data
+	 */
+	*temp = T;
+	*pressure = p;
+	return 0;
+}
 /*
  * Read A/D conversion result or EEPROM data
  * To read out the temperature data word UT(16 bit),the pressure data 
@@ -596,10 +835,15 @@ static ssize_t bmp180_read(struct file *filp,char __user *buf,size_t count,loff_
 	char *tmp;
 	int addr = 0xD0;
 	char rbuf;
-	int outdata = 0;
+	int counter = 0;
+	long temp;
+	long pressure;
+	char bu;
 
 	struct i2c_client *client = filp->private_data;
+#if DEBUG
 	printk(KERN_INFO ">>>>>bmp180 read<<<<<\n");
+#endif
 
 	tmp = kmalloc(count,GFP_KERNEL);
 	if(tmp == NULL)
@@ -607,7 +851,9 @@ static ssize_t bmp180_read(struct file *filp,char __user *buf,size_t count,loff_
 		printk(KERN_INFO "Unable to get memory from system\n");
 		return -ENOMEM;
 	}
+#if DEBUG
 	printk(KERN_INFO "Succeed to get memory\n");
+#endif
 #if DEBUG
 	bmp180_debug(client,"read");
 #endif
@@ -618,23 +864,33 @@ static ssize_t bmp180_read(struct file *filp,char __user *buf,size_t count,loff_
 	if(ret)
 		printk(KERN_INFO "Fail to read ID\n");
 	else
+#if DEBUG
 		printk(KERN_INFO "The ID is %08x\n",rbuf);
-	while(1)
-	{
-		bmp180_outdata(client,&outdata);
-		printk(KERN_INFO "The outdata is:%d\n",outdata);
-//		sleep(1);
-	}
+#endif
+//	while(1)
+//	{
+//		printk(KERN_INFO "================[%d]================\n",counter);
+		bmp180_calculate_temp_and_pressure(client,&temp,&pressure);
+#if DEBUG
+		printk(KERN_INFO "The BMP180's temp is:[%ld]\n",temp);
+		printk(KERN_INFO "The BMP180's pressure is:[%ld]\n",pressure);
+#endif
+		
+//		mdelay(1000);
+//		counter++;
+//	}
 	/*
 	 * push data to Userspace
 	 */	
-	ret = copy_to_user(buf,tmp,count);
+	ret = copy_to_user(buf,&temp,count);
 	if(ret != 0)
 	{
 		printk(KERN_INFO "loss the %d bytes\n",(int)(count - ret));
 		goto out_free;
 	} else
+#if DEBUG
 		printk(KERN_INFO "Succeed to push %d bytes to Userspace\n",count);
+#endif
 	kfree(tmp);
 	return 0;
 out_free:
