@@ -5,5 +5,5 @@ else
 all:
 	     make -C $(KDIR) M=$(PWD) modules ARCH=arm CROSS_COMPILE=arm-linux-
 clean:
-	     rm -f *.ko *.o *.mod.o *.mod.c *.symvers modul*
+	     rm -rf *.ko *.o *.mod.o *.mod.c *.symvers modul* .p* .tm*
 endif
