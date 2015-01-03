@@ -98,3 +98,4 @@ setup 5:
 		export LD_LIBRARY_PATH="/usr/lib/jni":$LD_LIBRARY_PATH
 	The "/usr/lib/jni" is lib of TestJni.so,it will help Java program find
 	the ld_lib.
+	Note!Must define ld "libxxx.so",if not will not load lib.
