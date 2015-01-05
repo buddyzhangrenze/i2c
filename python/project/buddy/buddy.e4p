@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Project SYSTEM "Project-4.6.dtd">
+<!-- eric4 project file for project buddy -->
+<!-- Saved: 2015-01-05, 14:37:21 -->
+<!-- Copyright (C) 2015 ,  -->
+<Project version="4.6">
+  <Language>en</Language>
+  <ProgLanguage mixed="0">Python</ProgLanguage>
+  <ProjectType>Qt4</ProjectType>
+  <Description></Description>
+  <Version>0.1</Version>
+  <Author></Author>
+  <Email></Email>
+  <Sources>
+    <Source>__init__.py</Source>
+    <Source>quitbutton.py</Source>
+    <Source>icon.py</Source>
+    <Source>start.py</Source>
+    <Source>tooltip.py</Source>
+    <Source>messagebox.py</Source>
+    <Source>center.py</Source>
+    <Source>statusbar.py</Source>
+    <Source>menubar.py</Source>
+    <Source>toolbar.py</Source>
+    <Source>mainwindow.py</Source>
+    <Source>absolute.py</Source>
+    <Source>boxlayout.py</Source>
+    <Source>gridlayout.py</Source>
+    <Source>gridlayout2.py</Source>
+    <Source>sigslot.py</Source>
+    <Source>escape.py</Source>
+    <Source>emit.py</Source>
+    <Source>inputdialog.py</Source>
+    <Source>colordialog.py</Source>
+    <Source>fontdialog.py</Source>
+    <Source>openfiledialog.py</Source>
+    <Source>checkbox.py</Source>
+    <Source>togglebutton.py</Source>
+    <Source>slider-label.py</Source>
+    <Source>progressbar.py</Source>
+    <Source>calendar.py</Source>
+  </Sources>
+  <Forms>
+  </Forms>
+  <Translations>
+  </Translations>
+  <Resources>
+  </Resources>
+  <Interfaces>
+  </Interfaces>
+  <Others>
+    <Other>gridlayout</Other>
+  </Others>
+  <Vcs>
+    <VcsType>None</VcsType>
+  </Vcs>
+  <FiletypeAssociations>
+    <FiletypeAssociation pattern="*.ui" type="FORMS" />
+    <FiletypeAssociation pattern="*.idl" type="INTERFACES" />
+    <FiletypeAssociation pattern="*.qm" type="TRANSLATIONS" />
+    <FiletypeAssociation pattern="*.ptl" type="SOURCES" />
+    <FiletypeAssociation pattern="*.pyw" type="SOURCES" />
+    <FiletypeAssociation pattern="*.ui.h" type="FORMS" />
+    <FiletypeAssociation pattern="*.ts" type="TRANSLATIONS" />
+    <FiletypeAssociation pattern="*.py" type="SOURCES" />
+    <FiletypeAssociation pattern="*.qrc" type="RESOURCES" />
+  </FiletypeAssociations>
+</Project>
