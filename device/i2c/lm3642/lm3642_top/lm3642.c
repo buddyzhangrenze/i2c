@@ -37,8 +37,7 @@ static int i2c_major;
 #if DEBUG
 static void lm3642_debug(struct i2c_client *client,char *name)
 {
-	printk(KERN_INFO "======================%s=======================\n \
-		=>client->name:%s\n=>client->addr:%08x\n=>adapter->name:%s\n",
+	printk(KERN_INFO "======================%s=======================\n=>client->name:%s\n=>client->addr:%08x\n=>adapter->name:%s\n",
 		name,client->name,client->addr,client->adapter->name);
 }
 #endif 
@@ -62,7 +61,7 @@ static int buddy_i2c_read(struct i2c_client *client,char address,
 				char *buf,int len)
 {
 	int ret;
-	struct i2c_msg[2];
+	struct i2c_msg msg[2];
 	/* dummp write */
 	msg[0].addr   = client->addr;
 	msg[0].flags  = client->flags | I2C_M_TEN;
@@ -93,7 +92,7 @@ static int buddy_i2c_write(struct i2c_client *client,char address,
 				char *buf,int len)
 {
 	int ret;
-	char *tmp[len+1];
+	char tmp[len+1];
 	struct i2c_msg msg;
 
 	tmp[0] = address;
@@ -103,7 +102,8 @@ static int buddy_i2c_write(struct i2c_client *client,char address,
 	}
 	/* write initial */
 	msg.addr    = client->addr;
-	msg.flags   = client->flags | I2C_M_TEN;
+//	msg.flags   = client->flags | I2C_M_TEN;
+	msg.flags   = client->flags;
 	msg.buf     = tmp;
 	msg.len     = len+1;
 
@@ -148,12 +148,12 @@ static void LM3642_Write_Flags_Register(struct i2c_client *client,
 /*
  * LM3642 Flash Feature Register
  */
-static void LM3642_Read_Feature_Register(struct i2c_client *client,
+static void LM3642_Read_Flash_Feature_Register(struct i2c_client *client,
 		char *buf)
 {
 	buddy_i2c_read(client,0x08,buf,1);
 }
-static void LM3642_Write_Feature_Register(struct i2c_client *client,
+static void LM3642_Write_Flash_Feature_Register(struct i2c_client *client,
 		char *buf)
 {
 	buddy_i2c_write(client,0x08,buf,1);
@@ -192,7 +192,7 @@ static void LM3642_Read_Torch_Ramp_Time_Register(
 {
 	buddy_i2c_read(client,0x06,buf,1);
 }
-static void LM3642_Read_Torch_Ramp_Time_Register(
+static void LM3642_Write_Torch_Ramp_Time_Register(
 		struct i2c_client *client,char *buf)
 {
 	buddy_i2c_write(client,0x06,buf,1);
@@ -223,7 +223,8 @@ static void LM3642_Flash_Mode(struct i2c_client *client)
 static void LM3642_Clear_Enable_Register_On_STROBE(
 		struct i2c_client *client)
 {
-	LM3642_Write_Enable_Register(client,0x23);
+	char buf = 0x23;
+	LM3642_Write_Enable_Register(client,&buf);
 }
 static void LM3642_Flash_Set_Leve(struct i2c_client *client,int num)
 {
@@ -247,7 +248,7 @@ static void LM3642_Flash_Set_Leve(struct i2c_client *client,int num)
  * es to the Flash Mode operation.The mode bits in the Enable Register are
  * cleared upon a Flash Time-out.
  */
-static void LM3642_Flash_Set_Time_out(struct i2c_client *client,int num)
+static void LM3642_Flash_Set_Time_Out(struct i2c_client *client,int num)
 {
 	char buf;
 	if(num < 0 || num > 8)
@@ -277,6 +278,16 @@ static void LM3642_Flash_Set_Ramp_Time(struct i2c_client *client,int num)
 	LM3642_Write_Flash_Feature_Register(client,&buf);
 }
 /*
+ * Turn On the Flash
+ */
+static void LM3642_Flash_Turn_On(struct i2c_client *client)
+{
+	LM3642_Flash_Set_Ramp_Time(client,8);
+	LM3642_Flash_Set_Time_Out(client,8);
+	LM3642_Flash_Set_Leve(client,16);
+	LM3642_Flash_Mode(client);
+}
+/*
  * =============================TORCH MODE===============================
  * In Torch Mode,the current source(LED) is programmed via the Current Con-
  * trol Register.Torch Mode is activated by the Enable Register and/or by
@@ -288,7 +299,7 @@ static void LM3642_Flash_Set_Ramp_Time(struct i2c_client *client,int num)
  * mA.In the LM3642LT,the programmable torch current ranges from 24mA to
  * 187mA.
  */
-static void LM3642_Troch_Mode(struct i2c_client *client)
+static void LM3642_Torch_Mode(struct i2c_client *client)
 {
 	char buf;
 	LM3642_Read_Enable_Register(client,&buf);
@@ -296,12 +307,12 @@ static void LM3642_Troch_Mode(struct i2c_client *client)
 	buf = buf | 0x02;
 	LM3642_Write_Enable_Register(client,&buf);
 }
-static void LM3642_Troch_Set_Leve(struct i2c_client *client,int num)
+static void LM3642_Torch_Set_Leve(struct i2c_client *client,int num)
 {
 	char buf;
 	if(num < 0 || num > 8)
 	{
-		printk(KERN_INFO "Over the Troch leve\n");
+		printk(KERN_INFO "Over the Torch leve\n");
 		return;
 	}
 	LM3642_Read_Current_Control_Register(client,&buf);
@@ -312,12 +323,12 @@ static void LM3642_Troch_Set_Leve(struct i2c_client *client,int num)
 	buf = buf | num;
 	LM3642_Write_Current_Control_Register(client,&buf);
 }
-static void LM3642_Troch_Ramp_Up_Time(struct i2c_client *client,int num)
+static void LM3642_Torch_Ramp_Up_Time(struct i2c_client *client,int num)
 {
 	char buf;
 	if(num < 0 || num > 8)
 	{
-		printk(KERN_INFO "Over the Troch Ramp-Up Time\n");
+		printk(KERN_INFO "Over the Torch Ramp-Up Time\n");
 		return;
 	}
 	LM3642_Read_Torch_Ramp_Time_Register(client,&buf);
@@ -327,19 +338,26 @@ static void LM3642_Troch_Ramp_Up_Time(struct i2c_client *client,int num)
 	buf = buf | num;
 	LM3642_Write_Torch_Ramp_Time_Register(client,&buf);
 }
-static void LM3642_Troch_Ramp_Down_Time(struct i2c_client *client,int num)
+static void LM3642_Torch_Ramp_Down_Time(struct i2c_client *client,int num)
 {
 	char buf;
 	if(num < 0 || num > 8)
 	{
-		printk(KERN_INFO "Over the Troch Ramp-Down Time\n");
+		printk(KERN_INFO "Over the Torch Ramp-Down Time\n");
 		return;
 	}
-	LM3642_Read_Ramp_Time_Register(client,&buf);
+	LM3642_Read_Torch_Ramp_Time_Register(client,&buf);
 	buf = buf & 0xF8;
 	num = num & 0x07;
 	buf = buf | num;
-	LM3642_Write_Ramp_Time_Register(client,&buf);
+	LM3642_Write_Torch_Ramp_Time_Register(client,&buf);
+}
+static void LM3642_Torch_Turn_On(struct i2c_client *client)
+{
+	LM3642_Torch_Ramp_Down_Time(client,7);
+	LM3642_Torch_Ramp_Up_Time(client,7);
+	LM3642_Torch_Set_Leve(client,8);
+	LM3642_Torch_Mode(client);
 }
 /*
  * ============================INDICATOR MODE============================
@@ -381,14 +399,20 @@ static void LM3642_Indicator_Set_Leve(struct i2c_client *client,int num)
  */
 static ssize_t lm3642_write(struct file *filp,const char __user *buf,size_t count,loff_t *offset)
 {
-	
+	return 0;
 }
 /*
  * read operation
  */
 static ssize_t lm3642_read(struct file *filp,char __user *buf,size_t count,loff_t *offset)
 {
-	
+	int ret;
+	struct i2c_client *client = filp->private_data;
+#if DEBUG
+	lm3642_debug(client,"read");
+#endif
+	LM3642_Torch_Turn_On(client);
+	return 0;
 }
 /*
  * open operation
