@@ -1,6 +1,20 @@
 /*
  * Copyright@2014 Buddy Zhangrenze
  */
+/*
+ * The LM3642 is a 4KMHz fixed-frequency synchronous boost converter plus
+ * 1.5A constant current driver for a high-current white LED.The high-side
+ * current source allows for grounded cathode LED operation providing Flash
+ * current up to 1.5A.An adaptive regulation method ensures the current 
+ * source remains in regulation and maximizes efficiency.
+ * The LM3642 is controlled via an I2C-compatible interface.Features inclu-
+ * de a hardware flash enable(STROBE) allowing a logic input to trigger the
+ * flash pulse into a low-current Torch Mode,allowing for synchronization 
+ * to RF power amplifier events or other high-current conditions.
+ * The 4 MHz switching frequency,over-voltage protection and adjustable 
+ * current limit settings allow the use of tiny,low-profile inductors and
+ * (10 uF) ceramic caoacitors.
+ */
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -23,117 +37,358 @@ static int i2c_major;
 #if DEBUG
 static void lm3642_debug(struct i2c_client *client,char *name)
 {
-	printk(KERN_INFO "======================%s=======================\n=>client->name:%s\n=>client->addr:%08x\n=>adapter->name:%s\n",name,client->name,client->addr,client->adapter->name);
+	printk(KERN_INFO "======================%s=======================\n \
+		=>client->name:%s\n=>client->addr:%08x\n=>adapter->name:%s\n",
+		name,client->name,client->addr,client->adapter->name);
 }
 #endif 
+/*
+ * The LM3642 is a high-power white LED flash driver caoable of delivering 
+ * up to 1.5A into a single high-powered LED.The LM3642 has two logic input
+ * includeing a hardware Flash Enable(STROBE) and a Flash interrupt input
+ * (Tx/TORCH) designed to interrupt the flash pulse during high battery 
+ * current conditions.Both logic inputs has internal 300K.pulldown resis-
+ * tors to GND.
+ * Control of the LM3642 is done via an I2C-compathible interface.The incl-
+ * udes adjustment of the Flash and Torch current levels,changing the Flash
+ * Timeout Duration and changing the switch current limit.Additionally,the-
+ * re flag and status bits that indicate flash current time-out,LED failure
+ * (open/short).
+ */
+/*
+ * i2c read
+ */
+static int buddy_i2c_read(struct i2c_client *client,char address,
+				char *buf,int len)
+{
+	int ret;
+	struct i2c_msg[2];
+	/* dummp write */
+	msg[0].addr   = client->addr;
+	msg[0].flags  = client->flags | I2C_M_TEN;
+	msg[0].buf    = &address;
+	msg[0].len    = 1;
+	/* read initial */
+	msg[1].addr   = client->addr;
+	msg[1].flags  = client->flags | I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].buf    = buf;
+	msg[1].len    = len;
+
+	ret = i2c_transfer(client->adapter,msg,2);
+	if(ret != 2)
+	{
+		printk(KERN_INFO "Unable to transfer data for read\n");
+		return 1;
+	}else
+	{
+		printk(KERN_INFO "Succeed to read data\n");
+		return 0;
+	}
+}
+/*
+ * i2c_write
+ */
+static int buddy_i2c_write(struct i2c_client *client,char address,
+				char *buf,int len)
+{
+	int ret;
+	char *tmp[len+1];
+	struct i2c_msg msg;
+
+	tmp[0] = address;
+	for(ret = 1;ret <= len ;ret++)
+	{
+		tmp[ret] = buf[ret-1];
+	}
+	/* write initial */
+	msg.addr    = client->addr;
+	msg.flags   = client->flags | I2C_M_TEN;
+	msg.buf     = tmp;
+	msg.len     = len+1;
+
+	ret = 0;
+	ret = i2c_transfer(client->adapter,&msg,1);
+	if(ret != 1)
+	{
+		printk(KERN_INFO "Unable to write data to i2c bus\n");
+		return 1;
+	} else
+	{
+		printk(KERN_INFO "Succeed to write data to i2c bus\n");
+		return 0;
+	}
+}
+/*
+ * LM3642 Enable Register
+ */
+static void LM3642_Read_Enable_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_read(client,0x0A,buf,1);
+}
+static void LM3642_Write_Enable_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_write(client,0x0A,buf,1);
+}
+/*
+ * LM3642 Flags Register
+ */
+static void LM3642_Read_Flags_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_read(client,0x0B,buf,1);
+}
+static void LM3642_Write_Flags_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_write(client,0x0B,buf,1);
+}
+/*
+ * LM3642 Flash Feature Register
+ */
+static void LM3642_Read_Feature_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_read(client,0x08,buf,1);
+}
+static void LM3642_Write_Feature_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_write(client,0x08,buf,1);
+}
+/*
+ * LM3642 Current Control Register
+ */
+static void LM3642_Read_Current_Control_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_read(client,0x09,buf,1);
+}
+static void LM3642_Write_Current_Control_Register(
+		struct i2c_client *client,char *buf)
+{
+	buddy_i2c_write(client,0x09,buf,1);
+}
+/*
+ * LM3642 IVFM Mode Register
+ */
+static void LM3642_Read_IVFM_Mode_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_read(client,0x01,buf,1);
+}
+static void LM3642_Write_IVFM_Mode_Register(struct i2c_client *client,
+		char *buf)
+{
+	buddy_i2c_write(client,0x01,buf,1);
+}
+/*
+ * LM3642 Torch Ramp Time Register
+ */
+static void LM3642_Read_Torch_Ramp_Time_Register(
+		struct i2c_client *client,char *buf)
+{
+	buddy_i2c_read(client,0x06,buf,1);
+}
+static void LM3642_Read_Torch_Ramp_Time_Register(
+		struct i2c_client *client,char *buf)
+{
+	buddy_i2c_write(client,0x06,buf,1);
+}
+/*
+ * ===========================Flash Mode==============================
+ * In Flash Mode,the LED current source provides 16 target current levels
+ * from 93.75mA to 1500 mA.The Flash current are adjusted via the Current
+ * Control Register.Flash Mode is activated by the Enable Register.Once the
+ * Flash sequence is activated the current source(LED) will ramp up to the
+ * programmed Flash current by stepping through all current steps until the
+ * programmed current is reached.
+ * When the part is enabled in the Flash Mode through the Enable Register,
+ * all mode bits in the Enable Register are cleared after a flash time-out
+ * event.
+ * If the STROBE pin is used to enable the Flash Mode.Mode bits are cleared
+ * after a single flash.To reflash,0x23 will have to be writen to 0x0A.
+ * Flash Mode is activated also by pulling the STROBE pin HIGH. 
+ */
+static void LM3642_Flash_Mode(struct i2c_client *client)
+{
+	char buf;
+	LM3642_Read_Enable_Register(client,&buf);
+	buf = buf & 0xFC;
+	buf = buf | 0x03;
+	LM3642_Write_Enable_Register(client,&buf);
+}
+static void LM3642_Clear_Enable_Register_On_STROBE(
+		struct i2c_client *client)
+{
+	LM3642_Write_Enable_Register(client,0x23);
+}
+static void LM3642_Flash_Set_Leve(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num< 0 || num > 16)
+	{
+		printk(KERN_INFO "Over the Flash leve\n");
+		return;
+	}
+	LM3642_Read_Current_Control_Register(client,&buf);
+	buf = buf & 0xF0;
+	buf = buf | num;
+	LM3642_Write_Current_Control_Register(client,&buf);
+}
+/*
+ * Flash Time-Out
+ * The Flash Time-out period set the amount of time that the Flash Current
+ * is being sourced from the current source(LED).The LM3642 has 8 time-out
+ * levels ranging 100ms to 800ms in 100ms steps.The Flash Time-out period
+ * is controlled in the FLASH FEATURES REGISTER.Flash Time-Out only appli-
+ * es to the Flash Mode operation.The mode bits in the Enable Register are
+ * cleared upon a Flash Time-out.
+ */
+static void LM3642_Flash_Set_Time_out(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the Flash Time-out\n");
+		return;
+	}
+	LM3642_Read_Flash_Feature_Register(client,&buf);
+	buf = buf & 0xF8;
+	num = num & 0x07;
+	buf = buf | num;
+	LM3642_Write_Flash_Feature_Register(client,&buf);
+}
+static void LM3642_Flash_Set_Ramp_Time(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the Flash Ramp Time\n");
+		return;
+	}
+	LM3642_Read_Flash_Feature_Register(client,&buf);
+	buf = buf & 0xC7;
+	num = num & 0x07;
+	num = num<<3;
+	buf = buf | num;
+	LM3642_Write_Flash_Feature_Register(client,&buf);
+}
+/*
+ * =============================TORCH MODE===============================
+ * In Torch Mode,the current source(LED) is programmed via the Current Con-
+ * trol Register.Torch Mode is activated by the Enable Register and/or by
+ * by Enabling the part in TX/Torch pin configuration.Once the Torch Mode
+ * is enabled the current source wil ramp up to the programmed Torch curre-
+ * nt level.The Ramp-Up and Ramp-Down times are independently adjustable
+ * via the Torch Ramp Register.Torch Mode is not affected by Flash Timeout
+ * In the LM3642,The programmable torch current ranges from 48.4mA to 375
+ * mA.In the LM3642LT,the programmable torch current ranges from 24mA to
+ * 187mA.
+ */
+static void LM3642_Troch_Mode(struct i2c_client *client)
+{
+	char buf;
+	LM3642_Read_Enable_Register(client,&buf);
+	buf = buf & 0xFC;
+	buf = buf | 0x02;
+	LM3642_Write_Enable_Register(client,&buf);
+}
+static void LM3642_Troch_Set_Leve(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the Troch leve\n");
+		return;
+	}
+	LM3642_Read_Current_Control_Register(client,&buf);
+	buf = buf & 0x8F;
+	num = num & 0x07;
+	num = num<<4;
+	num = num & 0x70;
+	buf = buf | num;
+	LM3642_Write_Current_Control_Register(client,&buf);
+}
+static void LM3642_Troch_Ramp_Up_Time(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the Troch Ramp-Up Time\n");
+		return;
+	}
+	LM3642_Read_Torch_Ramp_Time_Register(client,&buf);
+	buf = buf & 0xC7;
+	num = num & 0x07;
+	num = num<<3;
+	buf = buf | num;
+	LM3642_Write_Torch_Ramp_Time_Register(client,&buf);
+}
+static void LM3642_Troch_Ramp_Down_Time(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the Troch Ramp-Down Time\n");
+		return;
+	}
+	LM3642_Read_Ramp_Time_Register(client,&buf);
+	buf = buf & 0xF8;
+	num = num & 0x07;
+	buf = buf | num;
+	LM3642_Write_Ramp_Time_Register(client,&buf);
+}
+/*
+ * ============================INDICATOR MODE============================
+ * This mode is activate by the Enable Register.The LM3642 can be program-
+ * ed to a current leve that is 1/8th the torch current value in the Curr-
+ * ent Control Register.LM3642LT has only one setting of indicator current
+ * at 5mA.
+ */
+static void LM3642_Indicator_Mode(struct i2c_client *client)
+{
+	char buf;
+	LM3642_Read_Enable_Register(client,&buf);
+	buf = buf & 0xFC;
+	buf = buf | 0x01;
+	LM3642_Write_Enable_Register(client,&buf);
+}
+static void LM3642_Indicator_Set_Leve(struct i2c_client *client,int num)
+{
+	char buf;
+	if(num < 0 || num > 8)
+	{
+		printk(KERN_INFO "Over the indicator leve\n");
+		return;
+	}
+	LM3642_Read_Current_Control_Register(client,&buf);
+	buf = buf & 0x8F;
+	num = num & 0x08;
+	num = num<<4;
+	buf = buf | num;
+	LM3642_Write_Current_Control_Register(client,&buf);
+}
+/*
+ * ==========================Fault Operation============================
+ * Upon entering a fault condition,the LM3642 will set the appropriate fla-
+ * g in the Flags Register.
+ */
 /*
  * write operation 
  */
 static ssize_t lm3642_write(struct file *filp,const char __user *buf,size_t count,loff_t *offset)
 {
-	int ret;
-	char *tmp;
-	struct i2c_client *client = filp->private_data;
-	struct i2c_msg msg[2];
-	char tmp_data1[2] = {0x0a,0x00};
-	char tmp_data[2]  = {0x09,0x0F};
-
-	printk(KERN_INFO ">>>>>lm3642 write<<<<<\n");
-
-	tmp = kmalloc(count,GFP_KERNEL);
-	if(tmp == NULL)
-	{
-		printk(KERN_INFO "Unable to get enough memory\n");
-		return -ENOMEM;
-	}
-	printk(KERN_INFO "Succeed to get memory\n");
-
-	ret = copy_from_user(tmp,buf,count);
-	if(ret != 0)
-		printk(KERN_INFO "Loss %d bytes\n",ret);
-	printk(KERN_INFO "Succeed to get %d bytes from Userspace\n",count);
-
-	/*
-	 * i2c transfer
-	 */
-	msg[0].addr     = client->addr;
-	msg[0].flags    = client->flags | I2C_M_TEN;
-	msg[0].len      = 2;
-	msg[0].buf      = tmp_data1;
-
-	msg[1].addr     = client->addr;
-	msg[1].flags    = client->flags | I2C_M_TEN;
-	msg[1].len      = 2;
-	msg[1].buf      = tmp_data;
-
-	ret = i2c_transfer(client->adapter,msg,2);
-	if(ret != 2)
-	{
-		printk(KERN_INFO "Fail to transfer data\n");
-		goto out_free;
-	}
-	printk(KERN_INFO "Succeed to transfer data\n");
-	kfree(tmp);
-	return 0;
-out_free:
-	kfree(tmp);
-	return ret;
+	
 }
 /*
  * read operation
  */
 static ssize_t lm3642_read(struct file *filp,char __user *buf,size_t count,loff_t *offset)
 {
-	int ret;
-	char *tmp;
-	struct i2c_client *client = filp->private_data;
-	struct i2c_msg msg[2];
-	char reg_addr = 0xf6;
-	printk(KERN_INFO ">>>>>lm3642 read<<<<<\n");
-
-	tmp = kmalloc(count,GFP_KERNEL);
-	if(tmp == NULL)
-	{
-		printk(KERN_INFO "Unable to get memory from system\n");
-		return -ENOMEM;
-	}
-	printk(KERN_INFO "Succeed to get memory\n");
-#if DEBUG
-	lm3642_debug(client,"read");
-#endif
-	/*
-	 * read data
-	 */
-	msg[0].addr   = client->addr;
-	msg[0].flags  = client->flags | I2C_M_TEN;
-	msg[0].len    = 1;
-	msg[0].buf    = &reg_addr;
-
-	msg[1].addr   = client->addr;
-	msg[1].flags  = client->flags | I2C_M_TEN;
-	msg[1].flags |= I2C_M_RD;
-	msg[1].len    = 2;
-	msg[1].buf    = tmp;
-
-	ret = i2c_transfer(client->adapter,msg,2);
-	if(ret != 2)
-		printk(KERN_INFO "Fail to transfer data\n");
-	printk(KERN_INFO "Succeed to transfer datat\n");
-	/*
-	 * push data to Userspace
-	 */	
-	ret = copy_to_user(buf,tmp,count);
-	if(ret != 0)
-	{
-		printk(KERN_INFO "loss the %d bytes\n",(int)(count - ret));
-		goto out_free;
-	} else
-		printk(KERN_INFO "Succeed to push %d bytes to Userspace\n",count);
-	kfree(tmp);
-	return 0;
-out_free:
-	kfree(tmp);
-	return ret;
+	
 }
 /*
  * open operation
