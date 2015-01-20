@@ -15,8 +15,10 @@ struct buddy_list {
 };
 struct buddy_dev {
 	int data;
+	struct buddy_list *head;
 	struct buddy_list list;
 };
+
 /*
  * init list
  */
@@ -71,7 +73,6 @@ static void buddy_create(struct buddy_list *head,int i)
 			continue;
 		}
 		alin[i]->data = count++;
-		printf("The data is *%d\n",count);
 		buddy_list_add(alin[i],head);
 	}
 }
@@ -83,18 +84,19 @@ static void buddy_del(struct buddy_list *head)
 		buddy_list_del(list);
 		tmp = list;
 		list = list->next;
-		printf("free data is %d\n",tmp->data);
 		free(tmp);
 	}
 }
 static void buddy_show(struct buddy_list *head)
 {
 	struct buddy_list *list = head->next;
+	printf("||->");
 	while(list->data != STOP)
 	{
-		printf("The list data is[%d]\n",list->data);
+		printf("%d->",list->data);
 		list = list->next;
 	}
+	printf("\n");
 }
 static void buddy_list_del_init(struct buddy_list *head)
 {
@@ -286,6 +288,37 @@ static void buddy_list_splice_tail_init(struct buddy_list *list,
 #define buddy_list_first_entry(ptr,type,member) \
 	buddy_list_entry((ptr)->next,type,member)
 /*
+ * list for each elememt
+ */
+#define buddy_list_for_each(pos,head) \
+	for(pos = (head)->next; \
+			__builtin_prefetch(pos->next,0,2),(pos) != (head); \
+			(pos) = (pos)->next)
+#define _buddy_list_for_each(pos,head) \
+	for(pos = (head)->next;pos != (head);pos = pos->next)
+#define buddy_list_for_each_prev(pos,head) \
+	for(pos = (head)->prev; \
+			__builtin_prefetch(pos->prev,0,2),pos != head; \
+			pos = pos->prev)
+#define buddy_list_for_safe(pos,n,head) \
+	for(pos = (head)->next,n = pos->next; pos != (head); \
+			pos = n,n = pos->next)
+#define buddy_list_for_prev_safe(pos,n,head) \
+	for(pos = (head)->prev,n = pos->prev; pos != (head) ; \
+			pos = n,n = pos->prev)
+#define buddy_list_for_each_entry(pos,head,member) \
+	for(pos = buddy_list_entry(((head)->next),typeof(*pos),member); \
+			__builtin_prefetch(pos->member.next,0,3), \
+			&(pos->member) != (head); \
+			pos = buddy_list_entry(pos->member.next,typeof(*pos),member))
+#define buddy_list_for_each_entry_reverse(pos,head,member) \
+	for(pos = buddy_list_entry((head)->prev,typeof(*pos),member); \
+			__builtin_prefetch(pos->member.next,0,3), \
+			&(pos->member) != (head); \
+			pos = buddy_list_entry(pos->member.prev,typeof(*pos),member))
+#define buddy_list_prepare_entry(pos,head,member) \
+	((pos) ? : buddy_list_entry(head,typeof(*pos),member))
+/*
  * main
  */
 int main()
@@ -293,32 +326,73 @@ int main()
 	/*
 	 * create head
 	 */
-	struct buddy_list head,list;
+	struct buddy_list head,list,basic;
 	struct buddy_list *entry;
-	struct buddy_dev dev,*tmp;
+	struct buddy_dev dev,*tmp = NULL,dev0,dev1,dev2,dev3;
 	/*
 	 * init head
 	 */
 	dev.list.data = STOP;
 	head.data  = STOP;
 	list.data  = STOP;
+	basic.data = STOP;
 	
 	buddy_list_init(&dev.list);
 	buddy_list_init(&head);
 	buddy_list_init(&list);
+	buddy_list_init(&basic);
     /*
 	 * add member for list
 	 */
 	buddy_create(&head,10);
 	buddy_create(&list,5);
 	buddy_create(&dev.list,25);
+	dev0.data = 123;
+	dev1.data = 456;
+	dev2.data = 789;
+	dev3.data = 147;
+
+	buddy_list_add(&dev0.list,&basic);
+	buddy_list_add(&dev1.list,&basic);
+	buddy_list_add(&dev2.list,&basic);
+	buddy_list_add(&dev3.list,&basic);
+	tmp = buddy_list_prepare_entry(tmp,basic.next,list);
+	if(tmp == NULL)
+		printf("hahah\n");
+	else
+		printf("the ----%d-\n",tmp->data);
+	printf("||->");
+	buddy_list_for_each_entry(tmp,&basic,list)
+	{
+		printf("%d->",tmp->data);
+		if(tmp->data == 123)
+			break;
+	}	
+	printf("\n");
+	
 	/*
 	 * other operation for list
 	 */
+	printf("||->");
+	buddy_list_for_each_entry_reverse(tmp,&basic,list)
+	{
+		printf("%d->",tmp->data);
+		if(tmp->data == 147)
+			break;
+	}
+	printf("\n||->");
+	buddy_list_for_each(entry,&head)
+	{
+		printf("%d->",entry->data);
+	}
+	printf("\n||->");
+	buddy_list_for_each_prev(entry,&head)
+	{
+		printf("%d->",entry->data);
+	}
+	printf("\n");
 	buddy_list_splice_init(&list,&head);
-	buddy_show(&dev.list);
-	tmp = buddy_list_first_entry(&dev.list,struct buddy_dev,list);
-	printf("The data buddy is %d\n",&tmp->list.data);
+	//buddy_show(&dev.list);
 //	buddy_show(&list);
     /*
 	 * delete the list
