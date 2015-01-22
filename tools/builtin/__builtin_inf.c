@@ -12,7 +12,11 @@ int main()
 	/*
 	 * Return inf means infinity,and return NAN means not a number.
 	 */
-	printf("The __builtin_inf:[%lf]\n",
+	printf("The __builtin_inf():[%lf]\n",
 			__builtin_inf());
+	printf("The __builtin_inff():[%f]\n",
+			__builtin_inff());
+	printf("The __builtin_infl:[%Lf]\n",
+			__builtin_infl());
 	return 0;
 }

@@ -13,6 +13,11 @@ int main()
 	/*
 	 * Return inf meas positive infinity,and return nan means not a number.
 	 */
-	printf("The hug are:%lf\n",__builtin_huge_val());
+	printf("The __builtin_huge_val():[%lf]\n",
+			__builtin_huge_val());
+	printf("The __builtin_huge_valf():[%f]\n",
+			__builtin_huge_valf());
+	printf("The __builtin_huge_vall():[%Lf]\n",
+			__builtin_huge_vall());
 	return 0;
 }

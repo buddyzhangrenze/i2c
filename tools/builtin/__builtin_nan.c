@@ -21,5 +21,15 @@ int main()
 	 */
 	printf("The __builtin_nan():[%lf]\n",
 			__builtin_nan("Buddy"));
+	printf("The __builtin_nanf():[%f]\n",
+			__builtin_nanf("Buddy"));
+	printf("The __builtin_nanl():[%Lf]\n",
+			__builtin_nanl("Buddy"));
+	printf("The __builtin_nans():[%f]\n",
+			__builtin_nans("Buddy"));
+	printf("The __builtin_nansf():[%f]\n",
+			__builtin_nansf("Buddy"));
+	printf("The __builtin_nansl():[%Lf]\n",
+			__builtin_nansl("Buddy"));
 	return 0;
 }
