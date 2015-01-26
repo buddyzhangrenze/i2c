@@ -24,6 +24,9 @@ int buddy_exit(int i)
  */
 int __attribute__((const)) seq(int n);
 /*
+ * Constructor/Destructor call befor entry of main and exit of main.
+ */
+/*
  * __attribute__((constructor))
  */
 void __attribute__((constructor)) init_entry(void)
@@ -38,7 +41,7 @@ void __attribute__((destructor)) eixt_entry(void)
 	printf("The __exit__function[%s]\n",__FUNCTION__);
 }
 /*
- * -finstrument-function
+ * -finstrument-function:gcc xxx.c -finstrument-functions -o a
  * It will generate __cyg_profile_func_exit() and __cyg_profile_func_entry
  * in entry and exit of function for use definine.
  */
@@ -54,7 +57,15 @@ void __cyg_profile_func_exit(void *callee,void *callsite)
 {
 	printf("Exite %p in %p\n",callee,callsite);
 }
-
+/*
+ * weak
+ */
+extern int fun(void);
+int __attribute__((weak)) fun(void)
+{
+	printf("[%s]\n",__FUNCTION__);
+	return 0;
+}
 int main() 
 {
 /*
@@ -162,8 +173,29 @@ int main()
 	}
 	{
 	/*
-	 *
+	 * weak:
+	 * We must use function which implement in outside,we can't acknowledge
+	 * whether it has declare and implement in outside.So we can use 'weak'
+	 * ,if it has implement in outside,the function will use it which impl-
+	 * ement in outside.If no we will use this weak function.
 	 */
+	fun();
+	}
+	{
+	/*
+	 * alloc_size:
+	 * The alloc_size attribute is used to tell the complier that the func-
+	 * tion return value points to memory,where the size is given by one
+	 * or two of the functions parameters.GCC uses this information to im-
+	 * prove the correctness of __builtin_object_size.
+	 * The function paramenter(s) denoting the alloced size are specified 
+	 * by one or two interger argements supplied to the attribute.The allo-
+	 * cated size is either the value of the single function argument spe-
+	 * cified or the product of the two function arguments specified.Argu-
+	 * ment numbering starts at one.For instance.
+	 */
+//	void * my_calloc(size_t ,size_t) __attribute__(alloc_size(1,2));
+//	void * my_realloc(void *,size_t) __attribute__(alloc_size(2));
 	}
 	return 0;
 }
