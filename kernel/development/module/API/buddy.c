@@ -12,7 +12,10 @@ static int address;
 
 
 
-
+static void m(void)
+{
+	int k;
+}
 
 
 
