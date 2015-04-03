@@ -25,7 +25,7 @@
 
 static void bud()
 {
-
+	int i;
 }
 /*
  * Elf32
