@@ -23,7 +23,10 @@
 
 
 
+static void bud()
+{
 
+}
 /*
  * Elf32
  */
